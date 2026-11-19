@@ -1327,6 +1327,7 @@ luciole::ActionContext BrowserPage::actionContext() const {
       .showPreview = previewEnabled(),
       .clipboardAvailable = m_clipboard.available(),
       .clipboardHasFiles = m_clipboard.hasFiles(),
+      .clipboardHasImage = m_clipboard.hasImage(),
       .terminalAvailable = m_terminal.available(),
       .canUndo = m_hub.canUndo(),
       .canRedo = m_hub.canRedo(),

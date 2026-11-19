@@ -6,6 +6,8 @@
 #include "browser/browser_controller.h"
 #include "browser/location_presentation.h"
 #include "core/ui_phase.h"
+#include "fs/file_write.h"
+#include "fs/filename.h"
 #include "fs/gio_ptr.h"
 #include "operations/trash_item.h"
 #include "platform/desktop_integration.h"
@@ -13,6 +15,7 @@
 #include "ui/browser/file_error_text.h"
 #include "ui/builders.h"
 #include "ui/dialogs/dialog_chrome.h"
+#include "ui/dialogs/name_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "wayland/popup_surface.h"
@@ -37,6 +40,30 @@ namespace {
     const auto results = job.service<luciole::RestoreService>().transferResults();
     return callback(results);
   }
+  std::string_view imageExtension(std::string_view mime) {
+    if (mime == "image/png") {
+      return "png";
+    }
+    if (mime == "image/jpeg") {
+      return "jpg";
+    }
+    if (mime == "image/webp") {
+      return "webp";
+    }
+    if (mime == "image/gif") {
+      return "gif";
+    }
+    if (mime == "image/bmp") {
+      return "bmp";
+    }
+    if (mime == "image/tiff") {
+      return "tiff";
+    }
+    if (mime == "image/svg+xml") {
+      return "svg";
+    }
+    return {};
+  }
 } // namespace
 
 TransferController::TransferController(PageContext& page, std::function<void()> progressTick)
@@ -59,18 +86,27 @@ void TransferController::paste(
 ) {
   m_pendingFilePaste = true;
   const std::weak_ptr<int> lifetime = m_lifetime;
-  m_page.clipboard().requestFiles([this, lifetime, request, scope,
-                                   destination =
-                                       std::move(destination)](std::optional<luciole::ClipboardFiles> selection) {
+  m_page.clipboard().requestFiles([this, lifetime, request, scope, destination = std::move(destination)](
+                                      std::optional<luciole::ClipboardFiles> selection
+                                  ) mutable {
     if (lifetime.expired()) {
+      return;
+    }
+    if (!selection) {
+      if (m_page.clipboard().hasImage()) {
+        // No file URIs: the clipboard may still hold an image to save as a new file.
+        pasteImage(request, scope, std::move(destination));
+        return;
+      }
+      const bool pending = std::exchange(m_pendingFilePaste, false);
+      if (!pending || !m_page.visible() || !m_page.requestCurrent(request, scope)) {
+        return;
+      }
+      m_page.actionError("The clipboard changed or its file data could not be read.");
       return;
     }
     const bool pending = std::exchange(m_pendingFilePaste, false);
     if (!pending || !m_page.visible() || !m_page.requestCurrent(request, scope)) {
-      return;
-    }
-    if (!selection) {
-      m_page.actionError("The clipboard changed or its file data could not be read.");
       return;
     }
     if (m_page.operationsBusy()) {
@@ -91,6 +127,98 @@ void TransferController::paste(
       }
     }
   });
+}
+
+void TransferController::pasteImage(
+    const luciole::ActionRequest& request, luciole::ActionScope scope, luciole::Location destination
+) {
+  const std::weak_ptr<int> lifetime = m_lifetime;
+  m_page.clipboard().requestImage([this, lifetime, request, scope,
+                                   destination =
+                                       std::move(destination)](std::optional<luciole::ClipboardImage> image) mutable {
+    if (lifetime.expired()) {
+      return;
+    }
+    const bool pending = std::exchange(m_pendingFilePaste, false);
+    if (!pending || !m_page.visible() || !m_page.requestCurrent(request, scope)) {
+      return;
+    }
+    if (!image || m_page.operationsBusy()) {
+      if (!image) {
+        m_page.actionError("The clipboard changed or its image data could not be read.");
+      }
+      return;
+    }
+    openImagePaste(std::move(*image), std::move(destination));
+  });
+}
+
+void TransferController::openImagePaste(luciole::ClipboardImage image, luciole::Location parent) {
+  const auto extension = imageExtension(image.mime);
+  auto editor = std::make_unique<NameDialog>(
+      m_page.dialogWidth(DialogWidth::Small), "Paste image", "photo",
+      std::string("Pasted image") + (extension.empty() ? std::string{} : "." + std::string(extension)), "",
+      luciole::filenameProblem, [this](const std::string& name) { submitImagePaste(name); },
+      [this] { m_page.dismissPopup(); }, "Save", "Saving…"
+  );
+  auto* control = editor.get();
+  m_page.showDialog(std::move(editor), DialogWidth::Small);
+  if (m_page.popupSurface() != nullptr) {
+    m_page.activePopup().bind(ActivePopup::Kind::PasteImage, [this] { closeImagePaste(); });
+    m_imageEditor = control;
+    m_imageParent = std::move(parent);
+    m_image = std::move(image);
+    m_page.popupDispatcher().setFocus(control->input()->inputArea());
+    control->input()->selectAll();
+  }
+}
+
+void TransferController::submitImagePaste(const std::string& name) {
+  if (m_imageEditor == nullptr || !m_imageParent || !m_image) {
+    return;
+  }
+  auto& browser = m_page.browser();
+  if (browser.model().snapshot().location != *m_imageParent || !browser.searchQuery().empty()) {
+    m_imageEditor->showError("The destination changed. Close this dialog and try again.");
+    return;
+  }
+  const auto destination = m_imageParent->child(name);
+  const auto parent = *m_imageParent;
+  m_imageEditor->setSaving(true);
+  const std::weak_ptr<int> lifetime = m_lifetime;
+  const auto generation = m_page.activePopup().generation();
+  luciole::createFileWithBytes(destination, m_image->bytes,
+                               [this, lifetime, destination, parent, generation](auto result) {
+    if (lifetime.expired()) {
+      return;
+    }
+    const bool current = generation == m_page.activePopup().generation() && m_imageEditor != nullptr;
+    if (!result) {
+      const auto message = "Could not save the image: " + luciole::fileErrorText(result.error());
+      if (current) {
+        m_imageEditor->setSaving(false);
+        m_imageEditor->showError(message);
+      } else {
+        m_page.actionError(message);
+      }
+      return;
+    }
+    m_page.setActionMessage("Image saved.");
+    if (m_page.browser().model().snapshot().location == parent) {
+      m_page.revealOnReload({destination});
+      m_page.browser().refresh();
+    }
+    if (current) {
+      m_page.dismissPopup();
+    }
+  });
+}
+
+void TransferController::closeImagePaste() {
+  m_imageEditor = nullptr;
+  m_imageParent.reset();
+  m_image.reset();
+  m_page.focusFileList();
 }
 
 void TransferController::transferTo(

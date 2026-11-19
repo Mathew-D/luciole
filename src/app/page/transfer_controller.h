@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -19,6 +20,7 @@ namespace luciole {
 } // namespace luciole
 
 class Button;
+class NameDialog;
 class OperationJob;
 class PageContext;
 
@@ -75,6 +77,11 @@ private:
 
   // Pastes into `destination` once the clipboard answers and `request` is still current for `scope`.
   void paste(const luciole::ActionRequest& request, luciole::ActionScope scope, luciole::Location destination);
+  // Pastes the clipboard's image into `destination` after a name prompt, once the clipboard answers.
+  void pasteImage(const luciole::ActionRequest& request, luciole::ActionScope scope, luciole::Location destination);
+  void openImagePaste(luciole::ClipboardImage image, luciole::Location parent);
+  void submitImagePaste(const std::string& name);
+  void closeImagePaste();
   std::shared_ptr<OperationJob> start(luciole::TransferRequest request);
   std::shared_ptr<OperationJob> startPayloadTransfer(
       luciole::FilePayload payload, const luciole::Location& destination, luciole::TransferAction action
@@ -94,6 +101,10 @@ private:
   std::function<void()> m_progressTick;
   Timer m_operationProgress;
   bool m_pendingFilePaste = false;
+  // The image paste dialog: clipboard bytes waiting for a name.
+  NameDialog* m_imageEditor = nullptr;
+  std::optional<luciole::ClipboardImage> m_image;
+  std::optional<luciole::Location> m_imageParent;
   luciole::ExtractionLauncher m_extraction;
   std::optional<ActiveConflict> m_activeConflict;
   std::shared_ptr<int> m_lifetime = std::make_shared<int>(0);

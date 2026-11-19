@@ -19,6 +19,10 @@
 
 namespace {
   constexpr std::size_t kTextLimit = 1024 * 1024;
+  constexpr std::size_t kImageLimit = 64 * 1024 * 1024;
+  // Clipboard image types Luciole pastes as files, in preference order.
+  constexpr const char* kImageMimes[] = {"image/png", "image/jpeg", "image/webp",   "image/gif",
+                                         "image/bmp", "image/tiff", "image/svg+xml"};
   constexpr auto kFileDropReadTimeout = std::chrono::seconds(120);
   struct DragIcon {
     wl_surface* surface = nullptr;
@@ -89,6 +93,9 @@ namespace {
     std::string text;
     bool sending;
     bool valid = true;
+    // Binary payloads skip the UTF-8 check and may use a larger limit.
+    bool binary = false;
+    std::size_t limit = kTextLimit;
     std::chrono::seconds timeout{5};
     ~PipeTransfer() {
       if (fd >= 0) {
@@ -149,7 +156,7 @@ namespace {
         offset += static_cast<std::size_t>(count);
       } else {
         pipe.text.append(buffer.data(), static_cast<std::size_t>(count));
-        if (pipe.text.size() > kTextLimit) {
+        if (pipe.text.size() > pipe.limit) {
           pipe.valid = false;
         }
       }
@@ -160,7 +167,7 @@ namespace {
     }
     pthread_sigmask(SIG_SETMASK, &previous, nullptr);
     pipe.valid = pipe.valid && !g_cancellable_is_cancelled(cancellable);
-    if (!pipe.sending) {
+    if (!pipe.sending && !pipe.binary) {
       pipe.valid = pipe.valid
           && !pipe.text.contains('\0')
           && g_utf8_validate(pipe.text.data(), static_cast<gssize>(pipe.text.size()), nullptr);
@@ -278,7 +285,8 @@ struct luciole::WaylandTextClipboard::State : std::enable_shared_from_this<State
   }
   void read(
       wl_data_offer* offer, const char* mime, GCancellable* cancel,
-      std::function<void(std::optional<std::string>)> callback, std::chrono::seconds timeout = std::chrono::seconds(5)
+      std::function<void(std::optional<std::string>)> callback, std::chrono::seconds timeout = std::chrono::seconds(5),
+      bool binary = false, std::size_t limit = kTextLimit
   ) {
     int fds[2];
     if (!offer || !offers.contains(offer) || ::pipe2(fds, O_CLOEXEC) != 0) {
@@ -298,7 +306,10 @@ struct luciole::WaylandTextClipboard::State : std::enable_shared_from_this<State
         new Callback(std::move(callback))
     );
     g_task_set_task_data(
-        task, new PipeTransfer{.fd = fds[0], .text = {}, .sending = false, .timeout = timeout},
+        task,
+        new PipeTransfer{
+            .fd = fds[0], .text = {}, .sending = false, .binary = binary, .limit = limit, .timeout = timeout
+        },
         [](gpointer data) { delete static_cast<PipeTransfer*>(data); }
     );
     g_task_run_in_thread(task, transfer);
@@ -902,6 +913,50 @@ void luciole::WaylandTextClipboard::requestFiles(std::function<void(std::optiona
     read->dataDone = true;
     finish();
   });
+}
+namespace {
+  const char* imageMime(const std::unordered_set<std::string>& types) {
+    for (const char* mime : kImageMimes) {
+      if (types.contains(mime)) {
+        return mime;
+      }
+    }
+    return nullptr;
+  }
+} // namespace
+
+bool luciole::WaylandTextClipboard::hasImage() const {
+  const auto& state = *m_state;
+  if (state.moving == state.epoch) {
+    return false;
+  }
+  const auto found = state.offers.find(state.selected);
+  return found != state.offers.end() && imageMime(found->second.types) != nullptr;
+}
+void luciole::WaylandTextClipboard::requestImage(std::function<void(std::optional<ClipboardImage>)> callback) {
+  auto self = m_state;
+  if (!available() || !hasImage()) {
+    callback(std::nullopt);
+    return;
+  }
+  auto* offer = self->selected;
+  const char* mime = imageMime(self->offers.at(offer).types);
+  const auto revision = self->epoch;
+  self->read(
+      offer, mime, self->reading.get(),
+      [self, revision, mime, callback = std::move(callback)](auto bytes) mutable {
+        if (!self->active || self->epoch != revision) {
+          callback(std::nullopt);
+          return;
+        }
+        if (!bytes) {
+          callback(std::nullopt);
+          return;
+        }
+        callback(ClipboardImage{.mime = mime, .bytes = std::move(*bytes)});
+      },
+      std::chrono::seconds(30), true, kImageLimit
+  );
 }
 bool luciole::WaylandTextClipboard::claimMove(std::uint64_t revision) {
   if (revision != m_state->epoch || m_state->moving == revision || m_state->reconciliation) {

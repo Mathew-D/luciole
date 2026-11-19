@@ -81,8 +81,8 @@ namespace {
     return writable(c);
   }
   State paste(const C& c, const R& r) {
-    if (!c.clipboardAvailable || !c.clipboardHasFiles) {
-      return unavailable("The clipboard has no available files.");
+    if (!c.clipboardAvailable || (!c.clipboardHasFiles && !c.clipboardHasImage)) {
+      return unavailable("The clipboard has no files or image to paste.");
     }
     if (!r.folder || !transferLocationSupported(*r.folder) || !c.query.empty() || !ready(c)) {
       return unavailable("Open an available local or supported remote folder first.");
