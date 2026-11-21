@@ -19,7 +19,8 @@ namespace luciole {
   struct ClipboardImage;
 } // namespace luciole
 
-// New items: the New Document submenu of the file menu, the create file/folder dialog and the link dialog.
+// New items: the New Document submenu of the file menu, the create file/folder dialog, the pasted image dialog and the
+// link dialog.
 class CreateController {
 public:
   CreateController(PageContext& page, luciole::TemplateCatalog& templates, SubmenuController& submenus);

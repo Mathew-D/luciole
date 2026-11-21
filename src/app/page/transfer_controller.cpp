@@ -7,7 +7,6 @@
 #include "browser/browser_controller.h"
 #include "browser/location_presentation.h"
 #include "core/ui_phase.h"
-#include "fs/filename.h"
 #include "fs/gio_ptr.h"
 #include "operations/trash_item.h"
 #include "platform/desktop_integration.h"
