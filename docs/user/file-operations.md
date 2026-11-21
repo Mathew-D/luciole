@@ -4,7 +4,7 @@
 
 Use Ctrl+C or Ctrl+X for the selection and Ctrl+V in the destination folder. Paste is also available from context menus, including List view. Clipboard transfers and drag/drop work between Luciole windows; the same transport supports other file managers.
 
-Ctrl+V also accepts an image on the clipboard (PNG, JPEG, WebP, GIF, BMP, TIFF or SVG): Luciole asks for a name, defaulting to `Pasted image` with the matching extension, and saves the image as a new file in the current folder. An existing name is reported rather than overwritten.
+Ctrl+V also accepts an image on the clipboard (PNG, JPEG, WebP, GIF, BMP, TIFF or SVG): Luciole asks for a name, defaulting to `Pasted image` with the matching extension, and saves the image as a new file in the current folder. An existing name is reported rather than overwritten. The save uses the same staged creation path as New File, so it joins the Undo history; like other creation it needs a folder with a native path, which includes mounted SFTP and WebDAV locations.
 
 Drop files on a folder or the destination pane. Ctrl requests Copy, Shift requests Move and Alt offers an action chooser. Alt-drop offers Create Link Here for native locations and within the same mounted SFTP server/account. These are symbolic links, not copies of the source data. Cross-server links and SMB/WebDAV link creation are unavailable. Server-side symlink support is checked before an existing destination is replaced. Dragging a folder into Places pins it instead of transferring its contents.
 

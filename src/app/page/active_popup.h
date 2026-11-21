@@ -17,7 +17,6 @@ public:
     PatternSelection,
     EmptyTrash,
     CreateItem,
-    PasteImage,
     Link,
     BatchRename,
     FileRename,

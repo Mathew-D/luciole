@@ -20,7 +20,7 @@ namespace luciole {
 } // namespace luciole
 
 class Button;
-class NameDialog;
+class CreateController;
 class OperationJob;
 class PageContext;
 
@@ -30,7 +30,7 @@ class PageContext;
 class TransferController {
 public:
   // `progressTick` runs every 100 ms while an owned batch/permission dialog needs progress.
-  TransferController(PageContext& page, std::function<void()> progressTick);
+  TransferController(PageContext& page, std::function<void()> progressTick, CreateController& create);
 
   // Pastes the clipboard's files into the request's folder once the clipboard answers.
   void paste(const luciole::ActionRequest& request);
@@ -77,11 +77,8 @@ private:
 
   // Pastes into `destination` once the clipboard answers and `request` is still current for `scope`.
   void paste(const luciole::ActionRequest& request, luciole::ActionScope scope, luciole::Location destination);
-  // Pastes the clipboard's image into `destination` after a name prompt, once the clipboard answers.
+  // Pastes the clipboard's image through the create controller's name dialog, once the clipboard answers.
   void pasteImage(const luciole::ActionRequest& request, luciole::ActionScope scope, luciole::Location destination);
-  void openImagePaste(luciole::ClipboardImage image, luciole::Location parent);
-  void submitImagePaste(const std::string& name);
-  void closeImagePaste();
   std::shared_ptr<OperationJob> start(luciole::TransferRequest request);
   std::shared_ptr<OperationJob> startPayloadTransfer(
       luciole::FilePayload payload, const luciole::Location& destination, luciole::TransferAction action
@@ -99,12 +96,9 @@ private:
 
   PageContext& m_page;
   std::function<void()> m_progressTick;
+  CreateController& m_create;
   Timer m_operationProgress;
   bool m_pendingFilePaste = false;
-  // The image paste dialog: clipboard bytes waiting for a name.
-  NameDialog* m_imageEditor = nullptr;
-  std::optional<luciole::ClipboardImage> m_image;
-  std::optional<luciole::Location> m_imageParent;
   luciole::ExtractionLauncher m_extraction;
   std::optional<ActiveConflict> m_activeConflict;
   std::shared_ptr<int> m_lifetime = std::make_shared<int>(0);
