@@ -187,31 +187,32 @@ void TransferController::submitImagePaste(const std::string& name) {
   m_imageEditor->setSaving(true);
   const std::weak_ptr<int> lifetime = m_lifetime;
   const auto generation = m_page.activePopup().generation();
-  luciole::createFileWithBytes(destination, m_image->bytes,
-                               [this, lifetime, destination, parent, generation](auto result) {
-    if (lifetime.expired()) {
-      return;
-    }
-    const bool current = generation == m_page.activePopup().generation() && m_imageEditor != nullptr;
-    if (!result) {
-      const auto message = "Could not save the image: " + luciole::fileErrorText(result.error());
-      if (current) {
-        m_imageEditor->setSaving(false);
-        m_imageEditor->showError(message);
-      } else {
-        m_page.actionError(message);
+  luciole::createFileWithBytes(
+      destination, m_image->bytes, [this, lifetime, destination, parent, generation](auto result) {
+        if (lifetime.expired()) {
+          return;
+        }
+        const bool current = generation == m_page.activePopup().generation() && m_imageEditor != nullptr;
+        if (!result) {
+          const auto message = "Could not save the image: " + luciole::fileErrorText(result.error());
+          if (current) {
+            m_imageEditor->setSaving(false);
+            m_imageEditor->showError(message);
+          } else {
+            m_page.actionError(message);
+          }
+          return;
+        }
+        m_page.setActionMessage("Image saved.");
+        if (m_page.browser().model().snapshot().location == parent) {
+          m_page.revealOnReload({destination});
+          m_page.browser().refresh();
+        }
+        if (current) {
+          m_page.dismissPopup();
+        }
       }
-      return;
-    }
-    m_page.setActionMessage("Image saved.");
-    if (m_page.browser().model().snapshot().location == parent) {
-      m_page.revealOnReload({destination});
-      m_page.browser().refresh();
-    }
-    if (current) {
-      m_page.dismissPopup();
-    }
-  });
+  );
 }
 
 void TransferController::closeImagePaste() {

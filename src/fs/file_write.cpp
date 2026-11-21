@@ -13,9 +13,7 @@ void luciole::createFileWithBytes(
       [destination, bytes = std::string(bytes)] -> Location {
         const auto fail = [](GError* raw) -> FileErrorException {
           const GErrorPtr error(raw);
-          return FileErrorException(
-              error ? fileError(*error) : FileError{FileErrorKind::Other, "Write failed."}
-          );
+          return FileErrorException(error ? fileError(*error) : FileError{FileErrorKind::Other, "Write failed."});
         };
         const GioPtr<GFile> file(gioFile(destination));
         GError* error = nullptr;
