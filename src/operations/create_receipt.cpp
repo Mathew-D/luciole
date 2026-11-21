@@ -261,7 +261,9 @@ luciole::CreateReceipt::capture(CreateKind kind, const Location& destination, in
     throwFileError(FileErrorKind::Changed, "The created item changed before history was captured.");
   }
   if ((kind == CreateKind::Folder && !S_ISDIR(stamp.st_mode))
-      || ((kind == CreateKind::EmptyFile || kind == CreateKind::Document || kind == CreateKind::Image
+      || ((kind == CreateKind::EmptyFile
+           || kind == CreateKind::Document
+           || kind == CreateKind::Image
            || kind == CreateKind::HardLink)
           && !S_ISREG(stamp.st_mode))
       || (kind == CreateKind::SymbolicLink && !S_ISLNK(stamp.st_mode))) {

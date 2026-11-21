@@ -40,9 +40,7 @@ namespace {
   }
 } // namespace
 
-TransferController::TransferController(
-    PageContext& page, std::function<void()> progressTick, CreateController& create
-)
+TransferController::TransferController(PageContext& page, std::function<void()> progressTick, CreateController& create)
     : m_page(page), m_progressTick(std::move(progressTick)), m_create(create) {}
 
 void TransferController::paste(const luciole::ActionRequest& request) {

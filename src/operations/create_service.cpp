@@ -308,8 +308,7 @@ bool luciole::CreateService::createLink(const Location& parent, std::string name
   return true;
 }
 bool luciole::CreateService::prepareTarget(
-    const Location& parent, CreateKind kind, std::optional<DocumentTemplate> source,
-    std::optional<std::string> image
+    const Location& parent, CreateKind kind, std::optional<DocumentTemplate> source, std::optional<std::string> image
 ) {
   if (busy()) {
     return false;
