@@ -20,9 +20,14 @@
 namespace {
   constexpr std::size_t kTextLimit = 1024 * 1024;
   constexpr std::size_t kImageLimit = 64 * 1024 * 1024;
-  // Clipboard image types Luciole pastes as files, in preference order.
-  constexpr const char* kImageMimes[] = {"image/png", "image/jpeg", "image/webp",   "image/gif",
-                                         "image/bmp", "image/tiff", "image/svg+xml"};
+  // Clipboard image types Luciole pastes as files, in preference order, with their file extensions.
+  struct ImageType {
+    const char* mime;
+    const char* extension;
+  };
+  constexpr ImageType kImageTypes[] = {{"image/png", "png"},    {"image/jpeg", "jpg"}, {"image/webp", "webp"},
+                                       {"image/gif", "gif"},    {"image/bmp", "bmp"},  {"image/tiff", "tiff"},
+                                       {"image/svg+xml", "svg"}};
   constexpr auto kFileDropReadTimeout = std::chrono::seconds(120);
   struct DragIcon {
     wl_surface* surface = nullptr;
@@ -915,10 +920,10 @@ void luciole::WaylandTextClipboard::requestFiles(std::function<void(std::optiona
   });
 }
 namespace {
-  const char* imageMime(const std::unordered_set<std::string>& types) {
-    for (const char* mime : kImageMimes) {
-      if (types.contains(mime)) {
-        return mime;
+  const ImageType* imageType(const std::unordered_set<std::string>& types) {
+    for (const auto& type : kImageTypes) {
+      if (types.contains(type.mime)) {
+        return &type;
       }
     }
     return nullptr;
@@ -931,7 +936,7 @@ bool luciole::WaylandTextClipboard::hasImage() const {
     return false;
   }
   const auto found = state.offers.find(state.selected);
-  return found != state.offers.end() && imageMime(found->second.types) != nullptr;
+  return found != state.offers.end() && imageType(found->second.types) != nullptr;
 }
 void luciole::WaylandTextClipboard::requestImage(std::function<void(std::optional<ClipboardImage>)> callback) {
   auto self = m_state;
@@ -940,20 +945,16 @@ void luciole::WaylandTextClipboard::requestImage(std::function<void(std::optiona
     return;
   }
   auto* offer = self->selected;
-  const char* mime = imageMime(self->offers.at(offer).types);
+  const ImageType* type = imageType(self->offers.at(offer).types);
   const auto revision = self->epoch;
   self->read(
-      offer, mime, self->reading.get(),
-      [self, revision, mime, callback = std::move(callback)](auto bytes) mutable {
-        if (!self->active || self->epoch != revision) {
+      offer, type->mime, self->reading.get(),
+      [self, revision, type, callback = std::move(callback)](auto bytes) mutable {
+        if (!self->active || self->epoch != revision || !bytes) {
           callback(std::nullopt);
           return;
         }
-        if (!bytes) {
-          callback(std::nullopt);
-          return;
-        }
-        callback(ClipboardImage{.mime = mime, .bytes = std::move(*bytes)});
+        callback(ClipboardImage{.extension = type->extension, .bytes = std::move(*bytes)});
       },
       std::chrono::seconds(30), true, kImageLimit
   );

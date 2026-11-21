@@ -14,9 +14,9 @@ namespace luciole {
     FilePayload payload;
     std::uint64_t revision;
   };
-  // Raw image bytes from a foreign clipboard offer, with the MIME type they arrived as.
+  // Raw image bytes from a foreign clipboard offer, with the file extension of the MIME type they arrived as.
   struct ClipboardImage {
-    std::string mime;
+    std::string extension;
     std::string bytes;
   };
   using DropCompletion = std::function<void(bool)>;

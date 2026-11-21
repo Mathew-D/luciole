@@ -40,30 +40,6 @@ namespace {
     const auto results = job.service<luciole::RestoreService>().transferResults();
     return callback(results);
   }
-  std::string_view imageExtension(std::string_view mime) {
-    if (mime == "image/png") {
-      return "png";
-    }
-    if (mime == "image/jpeg") {
-      return "jpg";
-    }
-    if (mime == "image/webp") {
-      return "webp";
-    }
-    if (mime == "image/gif") {
-      return "gif";
-    }
-    if (mime == "image/bmp") {
-      return "bmp";
-    }
-    if (mime == "image/tiff") {
-      return "tiff";
-    }
-    if (mime == "image/svg+xml") {
-      return "svg";
-    }
-    return {};
-  }
 } // namespace
 
 TransferController::TransferController(PageContext& page, std::function<void()> progressTick)
@@ -143,10 +119,11 @@ void TransferController::pasteImage(
     if (!pending || !m_page.visible() || !m_page.requestCurrent(request, scope)) {
       return;
     }
-    if (!image || m_page.operationsBusy()) {
-      if (!image) {
-        m_page.actionError("The clipboard changed or its image data could not be read.");
-      }
+    if (!image) {
+      m_page.actionError("The clipboard changed or its image data could not be read.");
+      return;
+    }
+    if (m_page.operationsBusy()) {
       return;
     }
     openImagePaste(std::move(*image), std::move(destination));
@@ -154,10 +131,8 @@ void TransferController::pasteImage(
 }
 
 void TransferController::openImagePaste(luciole::ClipboardImage image, luciole::Location parent) {
-  const auto extension = imageExtension(image.mime);
   auto editor = std::make_unique<NameDialog>(
-      m_page.dialogWidth(DialogWidth::Small), "Paste image", "photo",
-      std::string("Pasted image") + (extension.empty() ? std::string{} : "." + std::string(extension)), "",
+      m_page.dialogWidth(DialogWidth::Small), "Paste image", "photo", "Pasted image." + image.extension, "",
       luciole::filenameProblem, [this](const std::string& name) { submitImagePaste(name); },
       [this] { m_page.dismissPopup(); }, "Save", "Saving…"
   );
