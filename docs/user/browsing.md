@@ -142,7 +142,7 @@ Ctrl+T, the plus button and explicit New Tab menu actions always switch to the n
 
 Enable Restore Tabs from Last Closed Window in Settings → General to reopen the last closed window's tabs once in a new window or on startup without a requested location. The saved session is consumed when restored.
 
-Enable Single Window in Settings → General to keep every location in one window: launching Luciole with a path, or a FileManager1 show-items request from another application, opens tabs in the existing window instead of a new one, and New Window opens a tab. File picker windows are unaffected.
+Enable Single Window in Settings → General to keep every location in one window: launching Luciole with a path, or a FileManager1 show-items request from another application, opens tabs in the existing window instead of a new one, launching it without a path raises that window, and New Window opens a tab. File picker windows are unaffected.
 
 ## Miller columns
 

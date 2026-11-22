@@ -254,7 +254,9 @@ void WorkspaceApplication::open(const luciole::InstanceRequest& request) {
     if (!existing) {
       host.surface.close();
     }
-    throw std::runtime_error("Close a tab before opening another window.");
+    throw std::runtime_error(
+        existing ? "Close a tab before opening another." : "Close a tab before opening another window."
+    );
   }
   select(window, first);
   m_connection.extension<luciole::DesktopIntegration>().activate(request.activationToken, host.surface.wlSurface());
