@@ -34,6 +34,7 @@ drop_action = "menu"
 switch_to_new_tab = true
 confirm_permanent_deletion = true
 restore_last_window = false
+single_window = false
 compact_menus = true
 show_close_buttons = true
 background_opacity = 1.0
@@ -91,6 +92,7 @@ All keys below belong in `[browser]`. Dimensions are logical pixels unless state
 | `show_permanent_deletion` | `false` | Show Delete Permanently in context menus for items outside Trash; Shift+Delete and Trash actions stay available either way |
 | `switch_to_new_tab` | `true` | Switch when opening a folder in a new tab; disable to keep browsing the current tab |
 | `restore_last_window` | `false` | Reopen tabs from the last closed window once in a new window, or at startup without a requested location |
+| `single_window` | `false` | Keep one window: launches and FileManager1 show-items requests open tabs in the existing window instead of a new one, New Window opens a tab, and tab-moving entries disappear from menus |
 | `terminal_command` | `""` | Terminal command and optional arguments, for example `"foot"`; empty uses `$TERMINAL`, then automatic discovery |
 | `sort_by` | `"name"` | `"name"`, `"type"`, `"size"`, `"modified"`, `"accessed"`, `"created"`, `"owner"`, `"group"`, `"permissions"`, `"location"` |
 | `sort_descending` | `false` | Reverse sort direction |
